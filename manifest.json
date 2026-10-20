@@ -1,0 +1,15 @@
+{
+  "name": "Lane LOG Analyzer",
+  "short_name": "LOG Analyzer",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#172b32",
+  "theme_color": "#087c78",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/512/087c78/ffffff?text=LA",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
