@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lane LOG Analyzer (M81_TCS)</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-mark">LA</div>
+      <div>
+        <h1>Lane LOG Analyzer</h1>
+        <p id="fileMeta">ยังไม่ได้เปิดไฟล์</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <label class="button primary" for="fileInput">เปิดไฟล์ LOG</label>
+      <input id="fileInput" type="file" accept=".old,.log,.txt,text/plain" multiple hidden>
+      <button id="exportButton" class="button" type="button" disabled>ส่งออกรายงาน</button>
+    </div>
+  </header>
+
+  <main id="dropTarget" class="workspace">
+    <section class="summary-strip" aria-label="สรุปผล">
+      <div class="metric"><span>Transaction</span><strong id="trxCount">0</strong></div>
+      <div class="metric critical"><span>ผิดปกติสูง</span><strong id="criticalCount">0</strong></div>
+      <div class="metric warning"><span>ควรตรวจสอบ</span><strong id="warningCount">0</strong></div>
+      <div class="metric"><span>พบข้อมูลรถ</span><strong id="apiStatus">-</strong></div>
+      <div class="metric grow"><span>ช่วงเวลา</span><strong id="timeRange">-</strong></div>
+    </section>
+
+    <section id="emptyState" class="empty-state">
+      <div class="drop-icon">LOG</div>
+      <h2>วางไฟล์ LOG ที่นี่</h2>
+      <label class="button primary" for="fileInput">เลือกไฟล์จากเครื่อง (ลากวางได้หลายไฟล์)</label>
+    </section>
+
+    <section id="analysisView" class="analysis-layout hidden">
+      <aside class="transaction-pane">
+        <div class="pane-toolbar">
+          <input id="transactionSearch" type="search" placeholder="Transaction / ทะเบียน / ด่าน">
+          <select id="severityFilter" aria-label="กรองระดับความผิดปกติ">
+            <option value="all">ทุกสถานะ</option>
+            <option value="critical">ผิดปกติสูง</option>
+            <option value="warning">ควรตรวจสอบ</option>
+            <option value="normal">ปกติ</option>
+          </select>
+        </div>
+        <div id="transactionList" class="transaction-list"></div>
+      </aside>
+
+      <article class="detail-pane">
+        <nav class="tabs" aria-label="มุมมองข้อมูล">
+          <button class="tab active" data-tab="diagnosis" type="button">วิเคราะห์</button>
+          <button class="tab" data-tab="timeline" type="button">ลำดับการทำงาน</button>
+          <button class="tab" data-tab="flow" type="button">Flow Chart</button>
+          <button class="tab" data-tab="simulator" type="button">หน้าจำลองรถ (Simulation)</button>
+          <button class="tab" data-tab="raw" type="button">LOG ดิบ</button>
+          <button class="tab" data-tab="search" type="button">ค้นหาทั้งไฟล์</button>
+        </nav>
+
+        <div id="diagnosisTab" class="tab-panel"></div>
+        <div id="timelineTab" class="tab-panel hidden"></div>
+        <div id="flowTab" class="tab-panel hidden"></div>
+        
+        <!-- หน้าต่าง Simulator แบบใหม่ (จัดวางตามรูปวาด) -->
+        <div id="simulatorTab" class="tab-panel hidden">
+          <div class="sim-header">
+            <button id="playSimBtn" class="button primary">▶ เล่นภาพจำลอง (Play)</button>
+            <div class="sim-status">
+              <span id="simTimeDisplay">--:--:--</span>
+              <strong id="simActionDisplay" style="color: var(--teal);">รอคำสั่ง...</strong>
+            </div>
+          </div>
+          
+          <div class="lane-wrapper">
+            <!-- ลูกศรชี้ทิศทางรถวิ่งด้านซ้าย -->
+            <div class="side-direction">
+              <span style="font-size: 24px;">➤</span>
+              <span>ทิศทางรถวิ่ง</span>
+            </div>
+
+            <div class="lane-canvas">
+              <!-- ส่วนที่ 1: Treadles (บนสุด) -->
+              <div class="treadle-area">
+                <div class="treadle-col left">
+                  <div id="simP90G_AV" class="t-sensor">P90 ปลายซ้าย</div>
+                  <div id="simP90G_AM" class="t-sensor">P90 ต้นซ้าย</div>
+                </div>
+                <div class="treadle-col right">
+                  <div id="simP90D_AV" class="t-sensor">P90 ปลายขวา</div>
+                  <div id="simP90D_AM" class="t-sensor">P90 ต้นขวา</div>
+                </div>
+                <div class="treadle-col angled">
+                  <div id="simP45_AV" class="t-sensor">P45 ปลาย</div>
+                  <div id="simP45_AM" class="t-sensor">P45 ต้น</div>
+                </div>
+              </div>
+
+              <!-- ส่วนที่ 2: Optical Barrier -->
+              <div class="ob-container">
+                <div id="simOB" class="ob-sensor active"></div>
+                <div class="ob-label">Optical Barrier</div>
+              </div>
+
+              <!-- ส่วนที่ 3: Passage Loop -->
+              <div id="simPassage" class="loop-sensor">Loop Passage</div>
+
+              <!-- ส่วนที่ 4: ALB & Booth -->
+              <div class="alb-booth-area">
+                <div id="simALB" class="barrier-stick"></div>
+                <div class="booth-box">
+                  <span>ตู้เก็บเงิน</span>
+                  <div id="simIhmAction" class="booth-action">-</div>
+                </div>
+              </div>
+
+              <!-- ส่วนที่ 5: Presence Loop (ล่างสุด) -->
+              <div id="simPresence" class="loop-sensor" style="margin-top: 40px;">Loop Presence</div>
+            </div>
+          </div>
+        </div>
+        <!-- จบหน้าต่าง Simulator -->
+
+        <div id="rawTab" class="tab-panel hidden"></div>
+        <div id="searchTab" class="tab-panel hidden">
+          <div class="search-bar">
+            <input id="globalSearch" type="search" placeholder="ข้อความ, อุปกรณ์, Error code">
+            <button id="searchButton" class="button primary" type="button">ค้นหา</button>
+          </div>
+          <p id="searchSummary" class="muted"></p>
+          <div id="searchResults" class="log-view"></div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <div id="dropOverlay" class="drop-overlay hidden">ปล่อยไฟล์เพื่อวิเคราะห์</div>
+  <script src="app.js"></script>
+</body>
+</html>
